@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Playwright diagnostics / artifacts
+artifacts/
+screenshots/
+playwright-report/
+test-results/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

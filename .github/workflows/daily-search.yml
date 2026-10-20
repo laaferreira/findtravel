@@ -1,0 +1,66 @@
+name: daily-search
+
+# Agendamento:
+#   cron em UTC. "0 9 * * *" = 09:00 UTC.
+#   America/Sao_Paulo é UTC-3 (sem horário de verão desde 2019),
+#   portanto equivale a 06:00 no horário de Brasília.
+# Também permite execução manual via workflow_dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Provider (mock ou decolar)'
+        required: false
+        default: 'mock'
+  schedule:
+    - cron: '0 9 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TRAVEL_PROVIDER: ${{ github.event.inputs.provider || 'mock' }}
+      HEADLESS: 'true'
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MAX_SEARCHES_PER_RUN: ${{ vars.MAX_SEARCHES_PER_RUN || '20' }}
+      DELAY_BETWEEN_SEARCHES_MS: ${{ vars.DELAY_BETWEEN_SEARCHES_MS || '4000' }}
+      NAVIGATION_TIMEOUT_MS: ${{ vars.NAVIGATION_TIMEOUT_MS || '45000' }}
+      ARTIFACTS_DIR: artifacts
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run monitor
+        run: npm run search
+
+      - name: Upload diagnostic artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostics-${{ github.run_id }}
+          path: |
+            artifacts/
+            *.log
+          if-no-files-found: ignore
+          retention-days: 7
